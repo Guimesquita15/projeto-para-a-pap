@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encontre o seu Produtor Local</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        /* CSS Básico: Garante que o mapa tem um tamanho visível */
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f4f4; }
+        h1 { text-align: center; color: #006400; padding: 20px 0; }
+        #map { 
+            height: 70vh; /* Altura de 70% da viewport */
+            width: 80%; 
+            margin: 20px auto; 
+            border: 5px solid #006400; 
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🥕 Onde Comprar Frescos?</h1>
+    
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+        // 3. Inicialização do Mapa
+        // Define o centro (Coimbra) e o nível de zoom (7 = Portugal)
+        var map = L.map('map').setView([40.20, -8.41], 7);
+        
+        // 4. Adiciona a camada de mapa do OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Mapa: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // 5. Função para buscar os dados da tua API
+        function carregarProdutores() {
+            // URL do teu endpoint Flask. 
+            const apiUrl = 'http://127.0.0.1:5000/api/produtores/localizacao';
+
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Erro HTTP: ${response.status}. Certifique-se que o Backend Flask está a correr.`);
+                    }
+                    return response.json();
+                })
+                .then(produtores => {
+                    produtores.forEach(produtor => {
+                        // Cria o conteúdo interativo que aparece ao clicar no marcador
+                        const popupContent = `
+                            <h4>${produtor.nome}</h4>
+                            <p><b>Morada:</b> ${produtor.morada}</p>
+                            <p><b>Produtos:</b> ${produtor.produtos.join(', ')}</p>
+                            <p><b>Telefone:</b> ${produtor.telefone}</p>
+                            <a href="https://www.google.com/maps/search/?api=1&query=${produtor.lat},${produtor.lng}" target="_blank">Obter Rotas / Ver no Google Maps</a>
+                        `;
+                        
+                        // Adiciona o marcador ao mapa usando as coordenadas (lat, lng)
+                        L.marker([produtor.lat, produtor.lng])
+                           .addTo(map)
+                           .bindPopup(popupContent);
+                    });
+                    console.log(`Carregados ${produtores.length} produtores.`);
+                })
+                .catch(error => {
+                    console.error("Erro ao carregar produtores:", error);
+                    alert("Erro ao carregar dados. Verifique a consola do browser e o servidor Flask.");
+                });
+        }
+
+        // 6. Executa a função
+        carregarProdutores();
+
+    </script>
+</body>
+</html>

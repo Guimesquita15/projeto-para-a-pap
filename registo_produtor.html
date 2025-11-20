@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registo de Produtor</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input[type="text"], textarea { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #008000; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 20px; }
+        button:hover { background-color: #006400; }
+        .success, .error { padding: 10px; margin-top: 15px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>📝 Registo de Novo Produtor</h1>
+    <form id="registoForm">
+        <label for="nome">Nome do Produtor / Quinta:</label>
+        <input type="text" id="nome" required>
+
+        <label for="morada">Morada Completa (Para o Mapa):</label>
+        <input type="text" id="morada" placeholder="Ex: Rua de Baixo, 15, Fundão" required>
+
+        <label for="telefone">Número de Telefone:</label>
+        <input type="text" id="telefone" required>
+        
+        <label for="produtos">Produtos à Venda (separados por vírgula):</label>
+        <textarea id="produtos" rows="3" placeholder="Ex: Tomates, Alfaces, Morangos"></textarea>
+
+        <button type="submit">Registar e Adicionar ao Mapa</button>
+    </form>
+    
+    <div id="mensagem" style="display: none;"></div>
+
+    <script>
+        document.getElementById('registoForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const apiUrl = 'http://127.0.0.1:5000/api/produtores/registar';
+            const mensagemDiv = document.getElementById('mensagem');
+            mensagemDiv.style.display = 'none';
+            
+            // MELHORIA: Limpa, corta espaços em branco e remove strings vazias (ex: se houver vírgulas duplas)
+            const produtosLista = document.getElementById('produtos').value
+                .split(',')
+                .map(item => item.trim())
+                .filter(item => item); // <-- Filtra itens vazios
+
+            const dados = {
+                nome: document.getElementById('nome').value,
+                morada: document.getElementById('morada').value,
+                telefone: document.getElementById('telefone').value,
+                produtos: produtosLista
+            };
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dados)
+            })
+            .then(response => response.json().then(data => ({status: response.status, body: data})))
+            .then(result => {
+                const data = result.body;
+                
+                mensagemDiv.innerHTML = data.mensagem;
+                mensagemDiv.style.display = 'block';
+                mensagemDiv.classList.remove('success', 'error');
+
+                if (result.status === 201) {
+                    mensagemDiv.classList.add('success');
+                    // Limpa o formulário após o sucesso
+                    document.getElementById('registoForm').reset(); 
+                    console.log("Coordenadas registadas:", data.latitude, data.longitude);
+                } else {
+                    mensagemDiv.classList.add('error');
+                }
+            })
+            .catch(error => {
+                mensagemDiv.innerHTML = 'Erro de rede: Não foi possível conectar ao servidor Flask.';
+                mensagemDiv.classList.add('error');
+                mensagemDiv.style.display = 'block';
+                console.error('Erro:', error);
+            });
+        });
+    </script>
+</body>
+</html>
