@@ -4,12 +4,14 @@ import sqlite3
 from geopy.geocoders import Nominatim
 import time
 import os
+# from datetime import datetime # Não é mais necessário
 
 # --- 1. CONFIGURAÇÃO GLOBAL ---
 app = Flask(__name__)
 CORS(app) 
 
-DB_NAME = 'estufa.db'
+# Se usou este nome para contornar o erro anterior, mantenha-o. Caso contrário, use 'estufa.db'
+DB_NAME = 'estufa_v2.db' 
 geolocator = Nominatim(user_agent="greenhouse_project_pap_guilherme") 
 
 def get_db_connection():
@@ -19,10 +21,11 @@ def get_db_connection():
     return conn
 
 def setup_database():
-    """Cria as tabelas necessárias e insere dados de teste, se o ficheiro DB não existir."""
+    """Cria a tabela Produtores e insere dados de teste, se o ficheiro DB não existir."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
+    # Criação APENAS da tabela 'produtores'
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS produtores (
             id_produtor INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,27 +37,22 @@ def setup_database():
             telefone TEXT
         );
     """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS leituras_sensores (
-            id_leitura INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME,
-            temperatura_ar REAL,
-            humidade_ar REAL,
-            humidade_solo REAL
-        );
-    """)
+    # A tabela 'leituras_sensores' foi removida.
 
     # Inserção de dados de teste (apenas se a tabela estiver vazia)
     cursor.execute("SELECT COUNT(*) FROM produtores")
     if cursor.fetchone()[0] == 0:
         test_data = [
-           
+            ("Quinta da Boa Esperança", 40.1265, -7.5015, "Cerejas, Pêssegos, Maçãs", "Rua do Pomar, Fundão", "911222333"),
+            ("Horta Urbana de Benfica", 38.7480, -9.1820, "Alfaces, Rúcula, Tomilho, Salsa", "Rua do Jardim, 15, Lisboa", "934567890"),
+            ("Fazenda Ribeira", 41.1400, -8.6110, "Vinhos, Queijos, Azeite", "Largo da Alfândega, 1, Porto", "225556667"),
+            ("Viveiro da Cidade", 40.2100, -8.4200, "Flores, Plantas Aromáticas", "Avenida Fernão de Magalhães, Coimbra", "960123456")
         ]
         cursor.executemany("""
             INSERT INTO produtores (nome_produtor, latitude, longitude, produtos_venda, morada, telefone) 
             VALUES (?, ?, ?, ?, ?, ?)
         """, test_data)
-
+        
     conn.commit()
     conn.close()
 
@@ -64,19 +62,16 @@ def registar_produtor():
     """Recebe os dados do formulário, faz geocodificação e insere na BD."""
     try:
         data = request.json
-        print(f"Dados recebidos do Frontend: {data}") # <--- LOG PARA DEBUGGING
+        print(f"Dados recebidos do Frontend: {data}")
         
         nome = data.get('nome')
         morada = data.get('morada')
         telefone = data.get('telefone')
-        # O Frontend envia 'produtos' como uma lista (array) de strings.
         produtos_list = data.get('produtos', []) 
         
-        # 1. VALIDAÇÃO MÍNIMA
         if not nome or not morada or not telefone:
             return jsonify({"status": "erro", "mensagem": "Faltam campos obrigatórios."}), 400
 
-        # 2. GEOCODIFICAÇÃO: Converte Morada -> (Latitude, Longitude)
         try:
             time.sleep(1) 
             location = geolocator.geocode(morada + ", Portugal", timeout=10)
@@ -88,15 +83,12 @@ def registar_produtor():
             longitude = location.longitude
             
         except Exception as e:
-            # Captura erros de rede ou timeout da API de geocodificação
             print(f"Erro de Geocodificação: {e}")
             return jsonify({"status": "erro", "mensagem": "Erro no serviço de mapas (Geocodificação). Tente mais tarde."}), 500
 
-        # 3. INSERÇÃO NA BASE DE DADOS
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Converte a lista de produtos numa string separada por vírgulas para a BD
         produtos_str = ", ".join(produtos_list) if isinstance(produtos_list, list) else str(produtos_list)
         
         cursor.execute("""
@@ -110,7 +102,6 @@ def registar_produtor():
         return jsonify({"status": "sucesso", "mensagem": "Produtor registado e adicionado ao mapa!", "latitude": latitude, "longitude": longitude}), 201
 
     except Exception as e:
-        # Este 'except' captura qualquer outro erro Python. É aqui que o 500 acontece.
         print(f"Erro interno FATAL: {e}")
         return jsonify({"status": "erro", "mensagem": "Erro interno do servidor. Verifique o console do terminal Flask para o Traceback completo."}), 500
 
@@ -119,33 +110,35 @@ def registar_produtor():
 @app.route('/api/produtores/localizacao', methods=['GET'])
 def get_produtores_localizacao():
     """Devolve a lista de produtores e localizações em formato JSON para o mapa."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT nome_produtor, latitude, longitude, produtos_venda, morada, telefone FROM produtores")
-    produtores_raw = cursor.fetchall()
-    conn.close()
-    
-    produtores_json = []
-    for row in produtores_raw:
-        produtos_str = row['produtos_venda'] if row['produtos_venda'] else ""
-        produtores_json.append({
-            "nome": row['nome_produtor'],
-            "lat": row['latitude'],
-            "lng": row['longitude'],
-            "produtos": produtos_str.split(', '),
-            "morada": row['morada'],
-            "telefone": row['telefone']
-        })
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-    return jsonify(produtores_json)
+        cursor.execute("SELECT nome_produtor, latitude, longitude, produtos_venda, morada, telefone FROM produtores")
+        produtores_raw = cursor.fetchall()
+        conn.close()
+        
+        produtores_json = []
+        for row in produtores_raw:
+            produtos_raw_str = row['produtos_venda'] if row['produtos_venda'] else ""
+            produtos_list = [p.strip() for p in produtos_raw_str.split(', ') if p.strip()]
+            
+            produtores_json.append({
+                "nome": row['nome_produtor'],
+                "lat": row['latitude'],
+                "lng": row['longitude'],
+                "produtos": produtos_list,
+                "morada": row['morada'],
+                "telefone": row['telefone']
+            })
+            
+        return jsonify(produtores_json)
 
-# --- 4. ENDPOINT DE STATUS DA ESTUFA (EXEMPLO) ---
-@app.route('/api/estufa/status', methods=['GET'])
-def get_estufa_status():
-    """Endpoint para devolver o estado atual dos parâmetros da estufa."""
-    # Este é um placeholder, pode vir a usar a tabela 'leituras_sensores' aqui
-    return jsonify({"temperatura": 25.5, "humidade": 60, "bomba_ligada": False})
+    except Exception as e:
+        print(f"ERRO FATAL ao consultar produtores (Erro 500): {e}")
+        return jsonify({"status": "erro", "mensagem": "Erro interno ao carregar produtores. Verifique o terminal Flask."}), 500
+
+# As rotas de sensores e status foram removidas!
 
 if __name__ == '__main__':
     if not os.path.exists(DB_NAME):

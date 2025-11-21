@@ -8,10 +8,37 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         /* CSS Básico: Garante que o mapa tem um tamanho visível */
-        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f4f4; }
-        h1 { text-align: center; color: #006400; padding: 20px 0; }
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f4f4; position: relative; } 
+        h1 { text-align: center; color: #006400; padding: 20px 0 10px; margin-bottom: 0; }
+
+        /* Estilos de Navegação (Menu no Canto Superior Direito) */
+        #nav-bar { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            z-index: 1000; 
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Estilo do Botão */
+        .nav-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #32CD32; 
+            color: white;
+            text-decoration: none; 
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+        .nav-button:hover {
+            background-color: #008000;
+        }
+
         #map { 
-            height: 70vh; /* Altura de 70% da viewport */
+            height: 70vh;
             width: 80%; 
             margin: 20px auto; 
             border: 5px solid #006400; 
@@ -22,13 +49,16 @@
 <body>
     <h1>🥕 Onde Comprar Frescos?</h1>
     
+    <div id="nav-bar">
+        <a href="registo_produtor.html" class="nav-button">📝 Registar</a>
+    </div>
+
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
     <script>
         // 3. Inicialização do Mapa
-        // Define o centro (Coimbra) e o nível de zoom (7 = Portugal)
         var map = L.map('map').setView([40.20, -8.41], 7);
         
         // 4. Adiciona a camada de mapa do OpenStreetMap
@@ -38,7 +68,6 @@
 
         // 5. Função para buscar os dados da tua API
         function carregarProdutores() {
-            // URL do teu endpoint Flask. 
             const apiUrl = 'http://127.0.0.1:5000/api/produtores/localizacao';
 
             fetch(apiUrl)
@@ -56,7 +85,7 @@
                             <p><b>Morada:</b> ${produtor.morada}</p>
                             <p><b>Produtos:</b> ${produtor.produtos.join(', ')}</p>
                             <p><b>Telefone:</b> ${produtor.telefone}</p>
-                            <a href="https://www.google.com/maps/search/?api=1&query=${produtor.lat},${produtor.lng}" target="_blank">Obter Rotas / Ver no Google Maps</a>
+                            <a href="http://maps.google.com/?q=${produtor.lat},${produtor.lng}" target="_blank">Obter Rotas / Ver no Google Maps</a>
                         `;
                         
                         // Adiciona o marcador ao mapa usando as coordenadas (lat, lng)
