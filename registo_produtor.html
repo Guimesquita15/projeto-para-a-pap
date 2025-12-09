@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registo de Produtor</title>
     <style>
-        /* ... (Estilos CSS mantidos iguais) ... */
         body { font-family: sans-serif; background-color: #e9f5e9; padding: 20px; }
         h1 { color: #006400; text-align: center; }
         .container { max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
-        input[type="text"], input[type="tel"], textarea, select, input[type="file"] {
+        input[type="text"], input[type="tel"], textarea, select {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
@@ -63,13 +62,6 @@
         .nav-simple a:hover {
             border-bottom: 2px solid #32CD32;
         }
-        .produto-form-group {
-            border: 1px solid #ddd;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            background-color: #f9f9f9;
-        }
     </style>
 </head>
 <body>
@@ -79,7 +71,8 @@
 
     <div class="container">
         <h1>📝 Registar Novo Produtor</h1>
-        <form id="produtor-form" enctype="multipart/form-data"> <label for="nome">Nome do Produtor / Quinta:</label>
+        <form id="produtor-form">
+            <label for="nome">Nome do Produtor / Quinta:</label>
             <input type="text" id="nome" name="nome" required>
 
             <label for="morada">Morada Completa (Ex: Rua Principal, 10, Fundão, Portugal):</label>
@@ -88,17 +81,9 @@
             <label for="telefone">Telefone (Ex: 912345678):</label>
             <input type="tel" id="telefone" name="telefone" required>
 
-            <div class="produto-form-group">
-                <label>Adicionar Produtos com Foto:</label>
-                <label for="nome-produto-input">Nome do Produto:</label>
-                <input type="text" id="nome-produto-input" placeholder="Ex: Maçãs Gala" style="margin-bottom: 10px;">
-                
-                <label for="foto-produto-input">Foto Específica do Produto:</label>
-                <input type="file" id="foto-produto-input" accept="image/*" style="margin-bottom: 10px;">
-                
-                <button type="button" onclick="adicionarProdutoComFoto()">➕ Adicionar Produto à Lista</button>
-            </div>
-
+            <label for="produto-input">Adicionar Produtos para Venda (Um de cada vez):</label>
+            <input type="text" id="produto-input" placeholder="Ex: Maçãs, Pêssegos">
+            <button type="button" onclick="adicionarProduto()">Adicionar Produto</button>
             <div id="produtos-selecionados" style="margin-top: 10px; margin-bottom: 20px;">
                 </div>
 
@@ -108,60 +93,33 @@
     </div>
 
     <script>
-        // Array que agora armazena OBJETOS { nome: string, file: File, id_temp: number }
-        let produtos = []; 
+        let produtos = [];
 
-        function adicionarProdutoComFoto() {
-            const nomeInput = document.getElementById('nome-produto-input');
-            const fotoInput = document.getElementById('foto-produto-input');
-
-            const nome = nomeInput.value.trim();
-            const file = fotoInput.files[0];
-
-            if (!nome || !file) {
-                alert("Por favor, introduza o nome e selecione uma foto para o produto.");
-                return;
+        function adicionarProduto() {
+            const input = document.getElementById('produto-input');
+            const produto = input.value.trim();
+            if (produto && !produtos.includes(produto)) {
+                produtos.push(produto);
+                renderizarProdutos();
+                input.value = '';
             }
-
-            // Cria um objeto para guardar o nome e o ficheiro (blob) em memória
-            produtos.push({
-                nome: nome,
-                file: file,
-                id_temp: Date.now() 
-            });
-
-            renderizarProdutos();
-            nomeInput.value = '';
-            fotoInput.value = ''; // Limpa o campo de ficheiro
         }
 
-        function removerProduto(id_temp) {
-            produtos = produtos.filter(p => p.id_temp !== id_temp);
+        function removerProduto(produtoRemover) {
+            produtos = produtos.filter(p => p !== produtoRemover);
             renderizarProdutos();
         }
 
         function renderizarProdutos() {
             const container = document.getElementById('produtos-selecionados');
             container.innerHTML = '';
-            if (produtos.length === 0) {
-                container.textContent = "Nenhum produto adicionado.";
-                return;
-            }
             produtos.forEach(p => {
                 const item = document.createElement('div');
                 item.className = 'produto-item';
-                
-                const fileName = p.file ? p.file.name : "Ficheiro não carregado";
-                
-                item.innerHTML = `
-                    <strong>${p.nome}</strong> 
-                    <span style="font-size: 0.9em; color: #666;">(${fileName})</span>
-                    <button type="button" onclick="removerProduto(${p.id_temp})">x</button>
-                `;
+                item.innerHTML = `${p} <button type="button" onclick="removerProduto('${p}')">x</button>`;
                 container.appendChild(item);
             });
         }
-
 
         document.getElementById('produtor-form').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -169,54 +127,32 @@
             const messageDiv = document.getElementById('message');
             messageDiv.style.display = 'none';
             
-            if (produtos.length === 0) {
-                alert("Por favor, adicione pelo menos um produto com foto.");
-                return;
-            }
-
-            // *** 1. PREPARAR FORMDATA ***
-            const formData = new FormData();
+            const formData = {
+                nome: document.getElementById('nome').value,
+                morada: document.getElementById('morada').value,
+                telefone: document.getElementById('telefone').value,
+                produtos: produtos 
+            };
             
-            // Adicionar campos de produtor
-            formData.append('nome', document.getElementById('nome').value);
-            formData.append('morada', document.getElementById('morada').value);
-            formData.append('telefone', document.getElementById('telefone').value);
-            
-            // 2. ENVIAR MÚLTIPLOS PRODUTOS/FICHEIROS
-            
-            // Array para guardar SÓ os nomes dos produtos (o Flask precisa para gerar URLs)
-            const nomesProdutos = []; 
-
-            produtos.forEach((produto, index) => {
-                // Envia o ficheiro usando um nome único (ex: file_0, file_1, ...)
-                formData.append(`file_${index}`, produto.file); 
-                
-                // Guarda o nome do produto para o Flask saber qual ficheiro pertence a qual nome
-                nomesProdutos.push(produto.nome);
-            });
-
-            // Envia a lista de nomes de produtos como uma string JSON
-            formData.append('nomes_produtos', JSON.stringify(nomesProdutos)); 
-            
-
-            // 3. ENVIAR PARA O FLASK
             fetch('http://127.0.0.1:5000/api/produtores/registar', {
                 method: 'POST',
-                // NUNCA defina o cabeçalho Content-Type manualmente para FormData!
-                body: formData 
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
             })
             .then(response => response.json().then(data => ({ status: response.status, body: data })))
             .then(result => {
                 if (result.status === 201) {
                     messageDiv.className = 'message success';
-                    messageDiv.textContent = result.body.mensagem || "Registo e imagens carregados com sucesso!";
+                    messageDiv.textContent = result.body.mensagem || "Registo efetuado com sucesso!";
                     messageDiv.style.display = 'block';
                     document.getElementById('produtor-form').reset();
-                    produtos = []; 
+                    produtos = [];
                     renderizarProdutos();
                 } else {
                     messageDiv.className = 'message error';
-                    messageDiv.textContent = result.body.mensagem || "Erro ao registar o produtor.";
+                    messageDiv.textContent = result.body.mensagem || "Erro ao registar o produtor. Tente novamente.";
                     messageDiv.style.display = 'block';
                 }
             })
