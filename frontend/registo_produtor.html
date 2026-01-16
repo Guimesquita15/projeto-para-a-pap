@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Registo Produtor</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f7f0; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { color: #006400; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.3s; }
+        .btn-reg { background: #006400; color: white; margin-top: 10px; }
+        .btn-reg:hover { background: #004d00; }
+        #lista-produtos { font-size: 13px; color: #666; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🌱 Novo Registo</h2>
+        <input type="text" id="nome" placeholder="Nome da Quinta">
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="pass" placeholder="Password">
+        <input type="text" id="morada" placeholder="Morada (Rua, Cidade)">
+        <input type="tel" id="tel" placeholder="Telefone">
+        
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="prod-in" placeholder="Produto (ex: Mel)">
+            <button type="button" onclick="addP()" style="margin:10px 0; padding:10px;">+</button>
+        </div>
+        <div id="lista-produtos"></div>
+
+        <button class="btn btn-reg" onclick="registar()">CRIAR CONTA</button>
+        <p style="font-size: 14px; margin-top: 15px;">Já tem conta? <a href="login.html">Login</a></p>
+    </div>
+
+    <script>
+        let produtosArr = [];
+
+        function addP() {
+            const input = document.getElementById('prod-in');
+            if(input.value.trim()) {
+                produtosArr.push(input.value.trim());
+                document.getElementById('lista-produtos').innerText = "Produtos: " + produtosArr.join(", ");
+                input.value = "";
+            }
+        }
+
+        async function registar() {
+            const dados = {
+                nome: document.getElementById('nome').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('pass').value,
+                morada: document.getElementById('morada').value,
+                telefone: document.getElementById('tel').value,
+                produtos: produtosArr
+            };
+
+            try {
+                const resp = await fetch('http://127.0.0.1:5000/api/produtores/registar', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(dados)
+                });
+                const res = await resp.json();
+                
+                if(res.status === 'sucesso') {
+                    alert("✅ Registado com sucesso!");
+                    window.location.href = 'login.html';
+                } else {
+                    alert("❌ Erro: " + res.mensagem);
+                }
+            } catch (e) {
+                alert("❌ Erro de ligação ao servidor. Verifique se o app.py está a correr e tem internet.");
+            }
+        }
+    </script>
+</body>
+</html>
