@@ -1,67 +1,62 @@
 from flask import Flask, jsonify, request
-from flask_cors import CORS 
-import os
-import time
-from geopy.geocoders import Nominatim
+from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore
+import os
 
 app = Flask(__name__)
-CORS(app) 
+CORS(app) # Importante: Permite a ligação entre o HTML e o Python
 
-# Configurações - Garante que o ficheiro .json está na mesma pasta
-FIREBASE_CREDENTIALS_FILE = 'firebase_credentials.json' 
-COLLECTION_NAME = 'produtores' 
-
-def initialize_database():
-    if os.path.exists(FIREBASE_CREDENTIALS_FILE):
-        try:
-            cred = credentials.Certificate(FIREBASE_CREDENTIALS_FILE)
-            if not firebase_admin._apps:
-                firebase_admin.initialize_app(cred) 
-            return firestore.client()
-        except Exception as e:
-            print(f"Erro Firebase: {e}")
-            return None
-    return None
-
-db_client = initialize_database()
-geolocator = Nominatim(user_agent="mercado_frescos_portugal_v1")
+# Inicialização do Firebase
+try:
+    if not firebase_admin._apps:
+        cred = credentials.Certificate("firebase_credentials.json")
+        firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("✅ Servidor e Firebase Ativos!")
+except Exception as e:
+    print(f"❌ Erro Firebase: {e}")
 
 @app.route('/')
-def home(): return "Servidor Online!"
+def home():
+    return "Servidor Flask a funcionar!"
 
-# Rota para o Mapa (Público)
-@app.route('/api/produtores/localizacao', methods=['GET'])
-def get_mapa():
-    docs = db_client.collection(COLLECTION_NAME).stream()
-    return jsonify([{**d.to_dict(), "id": d.id} for d in docs])
-
-# Rota de Login
 @app.route('/api/produtores/login', methods=['POST'])
 def login():
-    data = request.json
-    docs = db_client.collection(COLLECTION_NAME).where("email", "==", data.get('email')).where("password", "==", data.get('password')).get()
-    for doc in docs:
-        return jsonify({"status": "sucesso", "id": doc.id, "nome": doc.to_dict().get('nome')})
-    return jsonify({"status": "erro"}), 401
+    print("--- Tentativa de Login Recebida ---")
+    try:
+        data = request.json
+        email = data.get('email')
+        password = data.get('password')
 
-# Rota para obter dados de 1 produtor
+        # Procura na coleção 'produtores'
+        docs = db.collection('produtores').where('email', '==', email).get()
+        
+        for doc in docs:
+            user = doc.to_dict()
+            if str(user.get('password')) == str(password):
+                print(f"✅ Login com sucesso para: {email}")
+                return jsonify({"status": "sucesso", "id": doc.id}), 200
+        
+        print(f"❌ Falha no login para: {email}")
+        return jsonify({"status": "erro", "mensagem": "Incorretos"}), 401
+    except Exception as e:
+        print(f"❌ Erro: {e}")
+        return jsonify({"status": "erro", "mensagem": str(e)}), 500
+
 @app.route('/api/produtores/meus_dados/<id>', methods=['GET'])
 def meus_dados(id):
-    doc = db_client.collection(COLLECTION_NAME).document(id).get()
-    return jsonify(doc.to_dict()) if doc.exists else jsonify({"erro": "n/a"}), 404
+    doc = db.collection('produtores').document(id).get()
+    return jsonify(doc.to_dict()) if doc.exists else (jsonify({"erro": "404"}), 404)
 
-# Rota para salvar alterações (incluindo Foto Base64)
 @app.route('/api/produtores/atualizar_perfil', methods=['POST'])
 def atualizar():
     data = request.json
-    db_client.collection(COLLECTION_NAME).document(data.get('id')).update({
+    db.collection('produtores').document(data.get('id')).update({
         "nome": data.get('nome'),
         "telefone": data.get('telefone'),
         "produtos": data.get('produtos', []),
-        "disponivel": data.get('disponivel'),
-        "foto": data.get('foto') 
+        "disponivel": data.get('disponivel', True)
     })
     return jsonify({"status": "sucesso"})
 

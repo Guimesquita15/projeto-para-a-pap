@@ -1,106 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Meu Painel</title>
+    <meta charset="UTF-8">
+    <title>Perfil</title>
+    <link rel="icon" href="data:,">
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
-        .box { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h2 { color: #006400; text-align: center; }
-        input, button { width: 100%; margin: 10px 0; padding: 12px; border-radius: 5px; border: 1px solid #ddd; box-sizing: border-box; }
-        #preview { width: 100%; display: none; margin-top: 10px; border-radius: 5px; }
-        
-        /* Cores dos botões */
-        .btn-stock { cursor: pointer; font-weight: bold; }
-        .btn-save { background: #006400; color: white; border: none; font-weight: bold; cursor: pointer; }
-        .btn-mapa { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; text-decoration: none; display: block; text-align: center; }
+        body { font-family: sans-serif; padding: 20px; }
+        .box { max-width: 400px; margin: auto; border: 1px solid #ccc; padding: 20px; border-radius: 10px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; background: #007bff; color: white; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="box">
-        <h2>Gestão de Perfil</h2>
-        
-        <input type="text" id="nome" placeholder="Nome da Quinta">
-        <input type="text" id="prods" placeholder="Produtos (separados por vírgula)">
-        <input type="tel" id="tel" placeholder="Telefone">
-        
-        <label style="font-size: 14px; font-weight: bold;">Foto da Quinta:</label>
-        <input type="file" id="f" accept="image/*" onchange="verFoto()">
-        <img id="preview">
-        
-        <button id="btn-stock" class="btn-stock" onclick="toggleStock()">Stock: OK</button>
-        
-        <button class="btn-save" onclick="salvar()">💾 GUARDAR ALTERAÇÕES</button>
-        
-        <a href="index.html" class="btn-mapa">📍 VER NO MAPA</a>
-
-        <p style="text-align: center; font-size: 12px; color: gray; margin-top: 15px;">
-            Clique em guardar antes de voltar ao mapa.
-        </p>
+        <h2>O Meu Perfil</h2>
+        <label>Nome:</label><input type="text" id="nome">
+        <label>Produtos:</label><input type="text" id="prods">
+        <label>Telefone:</label><input type="tel" id="tel">
+        <button onclick="salvar()">GUARDAR DADOS</button>
+        <p><a href="index.html">Sair para o Mapa</a></p>
     </div>
 
     <script>
         const pid = localStorage.getItem('produtor_id');
-        let fotoStr = "", stock = true;
 
-        async function init() {
+        async function carregar() {
             if (!pid) { window.location.href = 'login.html'; return; }
-            const r = await fetch(`http://127.0.0.1:5000/api/produtores/meus_dados/${pid}`);
-            const d = await r.json();
+            const res = await fetch(`http://127.0.0.1:5000/api/produtores/meus_dados/${pid}`);
+            const d = await res.json();
             document.getElementById('nome').value = d.nome || "";
             document.getElementById('tel').value = d.telefone || "";
             document.getElementById('prods').value = d.produtos ? d.produtos.join(', ') : "";
-            
-            stock = d.disponivel;
-            atualizarBotaoStock();
-
-            if(d.foto) { 
-                fotoStr = d.foto; 
-                document.getElementById('preview').src = d.foto; 
-                document.getElementById('preview').style.display = 'block';
-            }
-        }
-
-        function verFoto() {
-            const file = document.getElementById('f').files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                fotoStr = reader.result;
-                document.getElementById('preview').src = fotoStr;
-                document.getElementById('preview').style.display = 'block';
-            };
-            if(file) reader.readAsDataURL(file);
-        }
-
-        function toggleStock() {
-            stock = !stock;
-            atualizarBotaoStock();
-        }
-
-        function atualizarBotaoStock() {
-            const b = document.getElementById('btn-stock');
-            b.innerText = stock ? "Stock: DISPONÍVEL" : "Stock: ESGOTADO";
-            b.style.backgroundColor = stock ? "#e6f4ea" : "#fdeaea";
-            b.style.color = stock ? "#1e7e34" : "#d93025";
-            b.style.border = `1px solid ${stock ? '#1e7e34' : '#d93025'}`;
         }
 
         async function salvar() {
-            const response = await fetch('http://127.0.0.1:5000/api/produtores/atualizar_perfil', {
+            await fetch('http://127.0.0.1:5000/api/produtores/atualizar_perfil', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    id: pid, 
+                    id: pid,
                     nome: document.getElementById('nome').value,
                     telefone: document.getElementById('tel').value,
-                    produtos: document.getElementById('prods').value.split(',').map(s => s.trim()),
-                    disponivel: stock, 
-                    foto: fotoStr
+                    produtos: document.getElementById('prods').value.split(',').map(p => p.trim())
                 })
             });
-            if(response.ok) alert("Alterações guardadas! Já pode verificar no mapa.");
+            alert("Guardado!");
         }
-        
-        init();
+        carregar();
     </script>
 </body>
 </html>
